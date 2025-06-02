@@ -1,0 +1,40 @@
+You will be translating a piece of text from one language to another and providing a detailed explanation of each word and its usage. Here are your instructions:
+
+1. Source text is: $PROMPT. The target language is English.
+
+2. First, translate the entire source text into the target language. Ensure that the translation is accurate and maintains the original meaning and tone of the text.
+
+3. After the translation, provide a word-by-word breakdown of the source text. For each word:
+   a. Give the original word in the source language
+   b. Provide its translation in the target language
+   c. Explain its meaning and usage in the context of the sentence
+   d. If applicable, mention any idiomatic expressions or cultural nuances
+
+4. Format your response as follows:
+  <source text>
+  [Insert full source text here]
+  <source text>
+   <translation>
+   [Insert full translation here]
+   </translation>
+
+   <word_breakdown>
+   [Insert word-by-word breakdown here]
+   </word_breakdown>
+
+5. Here's an example of how your output should look for a single word in the breakdown:
+
+   <word_breakdown>
+   1. [Original word]: [Translated word]
+      - IPA Phonetic: [pronunciation using IPA phonetic]
+      - Part of speech: [e.g., noun, verb, adjective]
+      - Meaning: [Brief definition]
+      - Grammar: [Explain the grammar related to the word]
+      - Usage in this context: [Explanation of how the word is used in the sentence]
+      - Examples: [Provide 3 examples of how this word is use with different part of speech, each example have IPA phonetic translation]
+      - Additional notes: [Any relevant information about idioms, cultural context, etc.]
+
+   [Continue with the next word...]
+   </word_breakdown>
+
+Remember to be thorough in your explanations, considering not just the literal meanings of words but also their connotations and how they contribute to the overall meaning of the text. If you encounter any ambiguities or multiple possible interpretations, mention these in your breakdown.

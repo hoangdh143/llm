@@ -1,20 +1,11 @@
 #!/bin/bash
 
-# 1. Generate LaTeX expression using simonw/llm
-PROMPT=${1:-"Explain the quadratic formula in LaTeX format only."}
-LATEX_OUTPUT=$(llm -m anthropic/claude-sonnet-4-0 "$PROMPT")
-
-# 2. Create a minimal HTML page using KaTeX
-HTML_FILE=$(mktemp --suffix=.html)
-PDF_FILE=$(mktemp --suffix=.pdf)
-
-#!/bin/bash
-
 # Prompt can be passed as an argument or default
-PROMPT=${1:-"Explain the quadratic formula using markdown and include math formulas in LaTeX."}
+export PROMPT=${1:-"Explain the quadratic formula using markdown and include math formulas in LaTeX."}
+PROMT_WITH_TEMPLATE=$(envsubst < template.txt)
 
 # Use LLM to generate output (Markdown + LaTeX)
-MARKDOWN_OUTPUT=$(llm -m anthropic/claude-sonnet-4-0 "$PROMPT")
+MARKDOWN_OUTPUT=$(llm -m anthropic/claude-sonnet-4-0 "$PROMT_WITH_TEMPLATE")
 
 # Create temp files
 HTML_FILE=$(mktemp --suffix=.html)

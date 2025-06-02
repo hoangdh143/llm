@@ -1,10 +1,17 @@
 #!/bin/bash
 
 # Prompt can be passed as an argument or default
-PROMPT=${1:-"Explain the quadratic formula using markdown and include math formulas in LaTeX."}
+export PROMPT=${1:-"Explain the quadratic formula using markdown and include math formulas in LaTeX."}
+
+PROMT_WITH_TEMPLATE=$(envsubst < template.txt)
 
 # Use LLM to generate output (Markdown + LaTeX)
-MARKDOWN_OUTPUT=$(llm -m anthropic/claude-sonnet-4-0 "$PROMPT")
+# MARKDOWN_OUTPUT=$(llm -m anthropic/claude-sonnet-4-0 "$PROMPT")
+MARKDOWN_OUTPUT=$(python3 chat_client.py "$PROMT_WITH_TEMPLATE")
+CLEANED_OUTPUT=$(echo $MARKDOWN_OUTPUT | sed -E 's|<think>.*</think>||g')
+
+# echo $MARKDOWN_OUTPUT
+# echo $CLEANED_OUTPUT
 
 # Create temp files
 HTML_FILE=$(mktemp --suffix=.html)
@@ -50,7 +57,8 @@ EOF
 # Convert markdown to HTML and insert
 # echo "$MARKDOWN_OUTPUT" | marked >> "$HTML_FILE"
 # Render Markdown to HTML
-echo "$MARKDOWN_OUTPUT" | marked >> "$HTML_FILE"
+echo "$PROMPT" >> "$HTML_FILE"
+echo "$CLEANED_OUTPUT" | marked --gfm --breaks >> "$HTML_FILE"
 
 # Close HTML
 echo "</body></html>" >> "$HTML_FILE"
@@ -63,6 +71,7 @@ google-chrome-stable --headless --disable-gpu --print-to-pdf="$PDF_FILE" --print
 #wkhtmltopdf "$HTML_FILE" "$PDF_FILE"
 
 # 4. Print the PDF using CUPS
-lp -d Brother_HL-B2180DW -o media=A4 -o sides=two-sided-long-edge "$PDF_FILE"
+# lp -d Brother_HL-B2180DW -o media=A4 -o sides=two-sided-long-edge "$PDF_FILE"
+vivaldi "$PDF_FILE"
 
 echo "Sent to printer successfully."
