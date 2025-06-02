@@ -8,7 +8,7 @@ PROMT_WITH_TEMPLATE=$(envsubst < template.txt)
 # Use LLM to generate output (Markdown + LaTeX)
 # MARKDOWN_OUTPUT=$(llm -m anthropic/claude-sonnet-4-0 "$PROMPT")
 MARKDOWN_OUTPUT=$(python3 chat_client.py "$PROMT_WITH_TEMPLATE")
-CLEANED_OUTPUT=$(echo $MARKDOWN_OUTPUT | sed -E 's|<think>.*</think>||g')
+CLEANED_OUTPUT=$(echo "$MARKDOWN_OUTPUT" | sed -E 's|<think>.*<\/think>||g')
 
 # echo $MARKDOWN_OUTPUT
 # echo $CLEANED_OUTPUT
