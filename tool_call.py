@@ -8,39 +8,70 @@ client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
 #model = "lmstudio-community/qwen2.5-7b-instruct"
 model = "qwen/qwen3-8b"
 
-def get_delivery_date(order_id: str) -> datetime:
-    # Generate a random delivery date between today and 14 days from now
-    # in a real-world scenario, this function would query a database or API
-    today = datetime.now()
-    random_days = random.randint(1, 14)
-    delivery_date = today + timedelta(days=random_days)
-    print(
-        f"\nget_delivery_date function returns delivery date:\n\n{delivery_date}",
-        flush=True,
+def get_grammar_definition(word: str) -> str:
+    messages = [{
+        "role": "user",
+        "content": "Provide IPA Pronunication and explain grammar usage of \"{}\"".format(word)
+    }]
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
     )
-    return delivery_date
-
+    return response.choices[0].message.content
 
 tools = [
     {
         "type": "function",
         "function": {
-            "name": "get_delivery_date",
-            "description": "Get the delivery date for a customer's order. Call this whenever you need to know the delivery date, for example when a customer asks 'Where is my package'",
+            "name": "get_grammar_definition",
+            "description": "Get IPA pronunciation and grammar usage of single word",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "order_id": {
+                    "word": {
                         "type": "string",
-                        "description": "The customer's order ID.",
-                    },
+                        "description": "The word to be defined"
+                    }
                 },
-                "required": ["order_id"],
+                "required": ["word"],
                 "additionalProperties": False,
-            },
-        },
+            }
+        }
     }
 ]
+# def get_delivery_date(order_id: str) -> datetime:
+#     # Generate a random delivery date between today and 14 days from now
+    # in a real-world scenario, this function would query a database or API
+    # today = datetime.now()
+    # random_days = random.randint(1, 14)
+    # delivery_date = today + timedelta(days=random_days)
+    # print(
+        # f"\nget_delivery_date function returns delivery date:\n\n{delivery_date}",
+        # flush=True,
+    # )
+    # return delivery_date
+
+
+# tools = [
+    # {
+    #     "type": "function",
+        # "function": {
+        #     "name": "get_delivery_date",
+            # "description": "Get the delivery date for a customer's order. Call this whenever you need to know the delivery date, for example when a customer asks 'Where is my package'",
+            # "parameters": {
+            #     "type": "object",
+                # "properties": {
+                #     "order_id": {
+                        # "type": "string",
+                        # "description": "The customer's order ID.",
+                #     },
+                # },
+                # "required": ["order_id"],
+                # "additionalProperties": False,
+        #     },
+        # },
+#     }
+# ]
 
 messages = [
     {
@@ -49,7 +80,7 @@ messages = [
     },
     {
         "role": "user",
-        "content": "Give me the delivery date and time for order number 1017",
+        "content": "Translate this sentence to English and explain grammar usage of each word in the sentence by the provided tool: \"Das Gefieder ist vorwiegend dunkel olivbraun\"",
     },
 ]
 
@@ -68,10 +99,10 @@ print(response, flush=True)
 tool_call = response.choices[0].message.tool_calls[0]
 arguments = json.loads(tool_call.function.arguments)
 
-order_id = arguments.get("order_id")
+word = arguments.get("word")
 
 # Call the get_delivery_date function with the extracted order_id
-delivery_date = get_delivery_date(order_id)
+grammarExplained = get_grammar_definition(word)
 
 assistant_tool_call_request_message = {
     "role": "assistant",
@@ -89,8 +120,8 @@ function_call_result_message = {
     "role": "tool",
     "content": json.dumps(
         {
-            "order_id": order_id,
-            "delivery_date": delivery_date.strftime("%Y-%m-%d %H:%M:%S"),
+            "word": word,
+            "grammar_usage": grammarExplained,
         }
     ),
     "tool_call_id": response.choices[0].message.tool_calls[0].id,
