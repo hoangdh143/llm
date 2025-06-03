@@ -96,43 +96,43 @@ print(response, flush=True)
 
 # Extract the arguments for get_delivery_date
 # Note this code assumes we have already determined that the model generated a function call.
-tool_call = response.choices[0].message.tool_calls[0]
-arguments = json.loads(tool_call.function.arguments)
+#tool_call = response.choices[0].message.tool_calls[0]
+#arguments = json.loads(tool_call.function.arguments)
 
-word = arguments.get("word")
+#word = arguments.get("word")
 
 # Call the get_delivery_date function with the extracted order_id
-grammarExplained = get_grammar_definition(word)
+#grammarExplained = get_grammar_definition(word)
 
 assistant_tool_call_request_message = {
     "role": "assistant",
-    "tool_calls": [
+        "tool_calls": list(map(lambda tool:
         {
-            "id": response.choices[0].message.tool_calls[0].id,
-            "type": response.choices[0].message.tool_calls[0].type,
-            "function": response.choices[0].message.tool_calls[0].function,
+            "id": tool.id,
+            "type": tool.type,
+            "function": tool.function,
         }
-    ],
+        , response.choices[0].message.tool_calls)),
 }
 
 # Create a message containing the result of the function call
-function_call_result_message = {
+function_call_result_message = list(map(lambda tool: {
     "role": "tool",
     "content": json.dumps(
         {
-            "word": word,
-            "grammar_usage": grammarExplained,
+            "word": json.loads(tool.function.arguments).get("word"),
+            "grammar_usage": get_grammar_definition(json.loads(tool.function.arguments).get("word")),
         }
     ),
-    "tool_call_id": response.choices[0].message.tool_calls[0].id,
-}
+    "tool_call_id": tool.id,
+}, response.choices[0].message.tool_calls))
 
 # Prepare the chat completion call payload
 completion_messages_payload = [
     messages[0],
     messages[1],
     assistant_tool_call_request_message,
-    function_call_result_message,
+    *function_call_result_message,
 ]
 
 # Call the OpenAI API's chat completions endpoint to send the tool call result back to the model
