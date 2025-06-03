@@ -74,4 +74,5 @@ google-chrome-stable --headless --disable-gpu --print-to-pdf="$PDF_FILE" --print
 # lp -d Brother_HL-B2180DW -o media=A4 -o sides=two-sided-long-edge "$PDF_FILE"
 vivaldi "$PDF_FILE"
 
+reminder add "$CLEANED_OUTPUT"
 echo "Sent to printer successfully."
