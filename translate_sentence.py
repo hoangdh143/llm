@@ -6,6 +6,23 @@ client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
 #model = "qwen3-8b-mlx"
 model = "qwen/qwen3-8b"
 
+def detect_language(paragraph: str) -> str:
+    messages = [
+        {
+            "role": "user",
+            "content": "What is the language of this sentence (provide the language name without further explanation): \"{}\"".format(paragraph)
+        }
+    ]
+
+    response = client.chat.completions.create(
+        model=model,
+        messages=messages,
+    )
+
+    returnedMessage = response.choices[0].message.content or "Error: Could not get response"
+    cleaned_text = re.sub(r"<think>.*?</think>", "", returnedMessage, flags=re.DOTALL)
+    return cleaned_text
+
 def translate_to_english(paragraph: str) -> str:
     messages = [
         {
@@ -40,11 +57,11 @@ def split_into_words(paragraph: str) -> str:
     cleaned_text = re.sub(r"<think>.*?</think>", "", returnedMessage, flags=re.DOTALL)
     return cleaned_text
 
-def define_each_word(word: str) -> str:
+def define_each_word(word: str, language: str) -> str:
     messages = [
         {
             "role": "user",
-            "content": "Give IPA Pronunciation and explain the grammar of this word: \"{}\"".format(word),
+            "content": "Give IPA Pronunciation and explain the grammar of this word ({}): \"{}\"".format(language, word),
         }
     ]
     
@@ -69,6 +86,8 @@ def main():
     args = parser.parse_args()
     
     prompt = args.prompt
+
+    language = detect_language(prompt)
     
     translated = translate_to_english(prompt)
 
@@ -76,7 +95,7 @@ def main():
 
     word_list = [line for line in splitedLines.splitlines() if line.strip()]
     
-    definitions = list(map(lambda word: define_each_word(word), word_list))
+    definitions = list(map(lambda word: define_each_word(word, language), word_list))
 
     result = "\n".join([prompt, translated] + definitions)
     
