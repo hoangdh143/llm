@@ -72,12 +72,12 @@ def define_each_word(word: str, language: str) -> str:
 
     returnedMessage = response.choices[0].message.content or "Error: Could not get response"
     cleaned_text = re.sub(r"<think>.*?</think>", "", returnedMessage, flags=re.DOTALL)
-    return cleaned_text
+    return "\n".join([word, cleaned_text])
 
 def main():
     parser = argparse.ArgumentParser(description="Process a prompt and optional flags.")
     
-    # Positional argument (required)
+    # Positional argument (required):
     parser.add_argument("prompt", type=str, help="The main input prompt.")
     
     # Optional flags
