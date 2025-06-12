@@ -6,7 +6,6 @@
     <title>PDF Viewer with Notes Sidebar</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/2.1.0/showdown.min.js"></script>
     
     <!-- MathJax Configuration -->
     <script>
@@ -50,20 +49,6 @@
         #sidebar {
              height: calc(100vh - 5rem);
         }
-        /* Basic styling for rendered markdown content */
-        .prose h1, .prose h2, .prose h3 { margin-top: 1em; margin-bottom: 0.5em; font-weight: 600; line-height: 1.2; }
-        .prose p { margin-bottom: 1em; }
-        .prose ul { list-style-type: disc; margin-left: 1.5em; margin-bottom: 1em; }
-        .prose ol { list-style-type: decimal; margin-left: 1.5em; margin-bottom: 1em; }
-        .prose li { margin-bottom: 0.25em; }
-        .prose a { color: #2563eb; text-decoration: underline; }
-        .prose code { background-color: #e5e7eb; padding: 0.2em 0.4em; margin: 0; font-size: 85%; border-radius: 6px; }
-        .prose pre { background-color: #f3f4f6; padding: 1em; border-radius: 6px; overflow-x: auto; }
-        .prose pre code { padding: 0; background-color: transparent; border: none; }
-        .prose blockquote { border-left: 4px solid #d1d5db; padding-left: 1em; margin-left: 0; font-style: italic; color: #4b5563; }
-        .prose table { width: 100%; border-collapse: collapse; margin-bottom: 1em; }
-        .prose th, .prose td { border: 1px solid #d1d5db; padding: 0.5em 1em; }
-        .prose th { font-weight: 600; background-color: #f9fafb; }
     </style>
 </head>
 <body class="bg-gray-100 text-gray-800">
@@ -133,15 +118,6 @@
         let pageNum = 1;
         let pageRendering = false;
         let pageNumPending = null;
-        
-        // Markdown converter
-        const markdownConverter = new showdown.Converter({
-            tables: true,
-            strikethrough: true,
-            tasklists: true,
-            simpleLineBreaks: true
-        });
-
 
         /**
          * Renders a specific page of the PDF.
@@ -175,6 +151,7 @@
 
             } catch(err) {
                 console.error('Error rendering page:', err);
+                 // Using a custom modal or inline message would be better than alert
                  viewerMessage.innerHTML = `<p class="text-red-500">Error rendering page: ${err.message}</p>`;
             } finally {
                 pageRendering = false;
@@ -271,44 +248,22 @@
                 allAnnotations.forEach(note => {
                     const noteEl = document.createElement('div');
                     noteEl.className = 'bg-white p-3 mb-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:bg-blue-50 transition duration-200';
-                    
-                    // --- FIX FOR MATHJAX AND SHOWDOWN CONFLICT ---
-                    const mathSnippets = [];
-                    // 1. Protect MathJax content by replacing it with placeholders
-                    let protectedContent = note.content.replace(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g, (match) => {
-                        const placeholder = `<!--MATHJAX_PLACEHOLDER_${mathSnippets.length}-->`;
-                        mathSnippets.push(match);
-                        return placeholder;
-                    });
-
-                    // 2. Convert the Markdown (with placeholders) to HTML
-                    let markdownHtml = markdownConverter.makeHtml(protectedContent);
-
-                    // 3. Restore the original MathJax content
-                    mathSnippets.forEach((snippet, index) => {
-                        const placeholder = `<!--MATHJAX_PLACEHOLDER_${index}-->`;
-                        // Handle cases where showdown wraps the placeholder in its own <p> tag
-                        markdownHtml = markdownHtml.replace(`<p>${placeholder}</p>`, snippet).replace(placeholder, snippet);
-                    });
-                    
+                    // Note: We avoid innerHTML here for security, but for MathJax to parse, it's simpler.
+                    // A more secure implementation would sanitize the content first.
                     noteEl.innerHTML = `
                         <p class="font-semibold text-blue-700">Page ${note.page}</p>
                         <p class="text-sm text-gray-600 italic">By: ${note.author}</p>
-                        <div class="mt-1 text-gray-800 prose">${markdownHtml}</div>
+                        <div class="mt-1 text-gray-800">${note.content.replace(/\r\n/g, '<br>')}</div>
                     `;
-
-                    // Add click event to jump to the page, but ignore clicks on links or rendered math
-                    noteEl.addEventListener('click', (e) => {
-                        if (e.target.tagName === 'A' || e.target.closest('.MathJax')) {
-                            return;
-                        }
+                    // Add click event to jump to the page
+                    noteEl.addEventListener('click', () => {
                         pageNum = note.page;
                         queueRenderPage(pageNum);
                     });
                     annotationsList.appendChild(noteEl);
                 });
 
-                // 4. Tell MathJax to typeset the final, restored content
+                // Tell MathJax to typeset the new content
                 if (window.MathJax) {
                     MathJax.typesetPromise([annotationsList]).catch((err) => {
                         console.error('MathJax typesetting failed:', err);
