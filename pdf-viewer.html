@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Viewer with Notes Sidebar</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    
+    <!-- MathJax Configuration -->
+    <script>
+        MathJax = {
+          tex: {
+            inlineMath: [['$', '$'], ['\\(', '\\)']],
+            displayMath: [['$$', '$$'], ['\\[', '\\]']]
+          },
+          svg: {
+            fontCache: 'global'
+          }
+        };
+    </script>
+    <!-- MathJax Library -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        #viewer-container {
+            height: calc(100vh - 5rem); /* Full height minus header */
+        }
+        #sidebar {
+             height: calc(100vh - 5rem);
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div id="app-container" class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-md p-4 z-10 flex items-center justify-between">
+            <h1 class="text-2xl font-bold text-gray-700">PDF Viewer</h1>
+            <div class="flex items-center space-x-4">
+                <div id="pagination-controls" class="flex items-center space-x-2 hidden">
+                    <button id="prev-page" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <i class="fas fa-arrow-left"></i>
+                    </button>
+                    <span id="page-num" class="text-lg font-medium"></span> / <span id="page-count" class="text-lg font-medium"></span>
+                    <button id="next-page" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed">
+                        <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+                 <label for="file-upload" class="cursor-pointer bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 shadow-sm">
+                    <i class="fas fa-file-upload mr-2"></i>
+                    <span>Load PDF</span>
+                </label>
+                <input id="file-upload" type="file" class="hidden">
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-grow flex overflow-hidden">
+            <!-- Sidebar for Annotations -->
+            <aside id="sidebar" class="w-1/4 bg-gray-50 border-r border-gray-200 p-4 overflow-y-auto hidden">
+                <h2 class="text-xl font-semibold mb-4 border-b pb-2">Annotations</h2>
+                <div id="annotations-list">
+                    <p class="text-gray-500">Upload a PDF to see its annotations.</p>
+                </div>
+            </aside>
+
+            <!-- PDF Viewer -->
+            <div id="viewer-container" class="flex-grow bg-gray-200 flex items-center justify-center overflow-auto p-4">
+                 <div id="viewer-message" class="text-center">
+                    <i class="fas fa-file-pdf text-6xl text-gray-400"></i>
+                    <p class="mt-4 text-xl text-gray-500">Please select a PDF file to begin.</p>
+                </div>
+                <canvas id="pdf-canvas" class="shadow-lg rounded-md"></canvas>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Set the workerSrc for pdf.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+        // DOM elements
+        const fileUpload = document.getElementById('file-upload');
+        const pdfCanvas = document.getElementById('pdf-canvas');
+        const viewerContainer = document.getElementById('viewer-container');
+        const viewerMessage = document.getElementById('viewer-message');
+        const annotationsList = document.getElementById('annotations-list');
+        const sidebar = document.getElementById('sidebar');
+        const paginationControls = document.getElementById('pagination-controls');
+        const prevPageBtn = document.getElementById('prev-page');
+        const nextPageBtn = document.getElementById('next-page');
+        const pageNumSpan = document.getElementById('page-num');
+        const pageCountSpan = document.getElementById('page-count');
+
+        // PDF state
+        let pdfDoc = null;
+        let pageNum = 1;
+        let pageRendering = false;
+        let pageNumPending = null;
+
+        /**
+         * Renders a specific page of the PDF.
+         * @param {number} num The page number to render.
+         */
+        const renderPage = async (num) => {
+            pageRendering = true;
+            document.body.style.cursor = 'wait';
+
+            try {
+                // Get the page
+                const page = await pdfDoc.getPage(num);
+                const viewport = page.getViewport({ scale: 1.5 });
+                
+                // Set canvas dimensions
+                const canvasContext = pdfCanvas.getContext('2d');
+                pdfCanvas.height = viewport.height;
+                pdfCanvas.width = viewport.width;
+
+                // Render PDF page into canvas context
+                const renderContext = {
+                    canvasContext,
+                    viewport
+                };
+                const renderTask = page.render(renderContext);
+
+                await renderTask.promise;
+                
+                viewerMessage.classList.add('hidden');
+                pdfCanvas.classList.remove('hidden');
+
+            } catch(err) {
+                console.error('Error rendering page:', err);
+                 // Using a custom modal or inline message would be better than alert
+                 viewerMessage.innerHTML = `<p class="text-red-500">Error rendering page: ${err.message}</p>`;
+            } finally {
+                pageRendering = false;
+                document.body.style.cursor = 'default';
+                if (pageNumPending !== null) {
+                    renderPage(pageNumPending);
+                    pageNumPending = null;
+                }
+            }
+
+            // Update page counters
+            pageNumSpan.textContent = num;
+            updatePaginationButtons();
+        };
+
+        /**
+         * Updates the state of the pagination buttons (enabled/disabled).
+         */
+        const updatePaginationButtons = () => {
+            prevPageBtn.disabled = pageNum <= 1;
+            nextPageBtn.disabled = pageNum >= pdfDoc.numPages;
+        };
+
+        /**
+         * Queues a new page render if another is already in progress.
+         * @param {number} num The page number to queue.
+         */
+        const queueRenderPage = (num) => {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPage(num);
+            }
+        };
+
+        /**
+         * Handles the "previous page" button click.
+         */
+        const onPrevPage = () => {
+            if (pageNum <= 1) {
+                return;
+            }
+            pageNum--;
+            queueRenderPage(pageNum);
+        };
+
+        /**
+         * Handles the "next page" button click.
+         */
+        const onNextPage = () => {
+            if (pageNum >= pdfDoc.numPages) {
+                return;
+            }
+            pageNum++;
+            queueRenderPage(pageNum);
+        };
+
+        /**
+         * Extracts and displays all annotations from the PDF.
+         */
+        const displayAnnotations = async () => {
+            annotationsList.innerHTML = '<p class="text-gray-500 animate-pulse">Extracting notes...</p>';
+            let allAnnotations = [];
+
+            try {
+                for (let i = 1; i <= pdfDoc.numPages; i++) {
+                    const page = await pdfDoc.getPage(i);
+                    try {
+                       const annotations = await page.getAnnotations();
+                       annotations.forEach(annotation => {
+                            if (annotation.subtype === 'Text' || annotation.contents) {
+                                allAnnotations.push({
+                                    page: i,
+                                    content: annotation.contents || 'No content',
+                                    author: annotation.title || 'Anonymous'
+                                });
+                            }
+                        });
+                    } catch (err) {
+                        console.warn(`Could not get annotations for page ${i}: ${err.message}`);
+                    }
+                }
+            } catch (err) {
+                console.error("Error extracting annotations:", err);
+                annotationsList.innerHTML = '<p class="text-red-500">Could not extract annotations.</p>';
+                return;
+            }
+            
+
+            if (allAnnotations.length === 0) {
+                annotationsList.innerHTML = '<p class="text-gray-500">No text annotations found in this document.</p>';
+            } else {
+                annotationsList.innerHTML = ''; // Clear loading message
+                allAnnotations.forEach(note => {
+                    const noteEl = document.createElement('div');
+                    noteEl.className = 'bg-white p-3 mb-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:bg-blue-50 transition duration-200';
+                    // Note: We avoid innerHTML here for security, but for MathJax to parse, it's simpler.
+                    // A more secure implementation would sanitize the content first.
+                    noteEl.innerHTML = `
+                        <p class="font-semibold text-blue-700">Page ${note.page}</p>
+                        <p class="text-sm text-gray-600 italic">By: ${note.author}</p>
+                        <div class="mt-1 text-gray-800">${note.content.replace(/\r\n/g, '<br>')}</div>
+                    `;
+                    // Add click event to jump to the page
+                    noteEl.addEventListener('click', () => {
+                        pageNum = note.page;
+                        queueRenderPage(pageNum);
+                    });
+                    annotationsList.appendChild(noteEl);
+                });
+
+                // Tell MathJax to typeset the new content
+                if (window.MathJax) {
+                    MathJax.typesetPromise([annotationsList]).catch((err) => {
+                        console.error('MathJax typesetting failed:', err);
+                    });
+                }
+            }
+        };
+
+
+        /**
+         * Handles file selection and loads the PDF.
+         * @param {Event} e The file input change event.
+         */
+        const handleFileSelect = async (e) => {
+            const file = e.target.files[0];
+            if (!file || file.type !== 'application/pdf') {
+                return;
+            }
+            
+            const fileReader = new FileReader();
+            fileReader.onload = async (event) => {
+                const typedarray = new Uint8Array(event.target.result);
+                
+                // Show loading state
+                viewerMessage.innerHTML = `
+                    <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-500"></div>
+                    <p class="mt-4 text-xl text-gray-500">Loading PDF...</p>
+                `;
+                viewerMessage.classList.remove('hidden');
+                pdfCanvas.classList.add('hidden');
+                sidebar.classList.remove('hidden');
+                annotationsList.innerHTML = '';
+
+
+                try {
+                    const loadingTask = pdfjsLib.getDocument(typedarray);
+                    pdfDoc = await loadingTask.promise;
+                    
+                    // Show UI elements
+                    paginationControls.classList.remove('hidden');
+                    pageCountSpan.textContent = pdfDoc.numPages;
+                    pageNum = 1;
+                    
+                    // Render first page and extract annotations
+                    await renderPage(pageNum);
+                    await displayAnnotations();
+
+                } catch (err) {
+                    console.error('Error loading PDF:', err);
+                    viewerMessage.innerHTML = `
+                        <i class="fas fa-exclamation-triangle text-6xl text-red-500"></i>
+                        <p class="mt-4 text-xl text-red-600">Failed to load PDF. It might be corrupted or protected.</p>
+                        <p class="text-sm text-gray-500">${err.message}</p>
+                    `;
+                    sidebar.classList.add('hidden');
+                    paginationControls.classList.add('hidden');
+                }
+            };
+            fileReader.readAsArrayBuffer(file);
+        };
+
+        // Event Listeners
+        fileUpload.addEventListener('change', handleFileSelect);
+        prevPageBtn.addEventListener('click', onPrevPage);
+        nextPageBtn.addEventListener('click', onNextPage);
+
+    </script>
+</body>
+</html>
