@@ -272,18 +272,34 @@
                     const noteEl = document.createElement('div');
                     noteEl.className = 'bg-white p-3 mb-3 rounded-lg shadow-sm border border-gray-200 cursor-pointer hover:bg-blue-50 transition duration-200';
                     
-                    // Convert markdown content to HTML
-                    const markdownHtml = markdownConverter.makeHtml(note.content);
+                    // --- FIX FOR MATHJAX AND SHOWDOWN CONFLICT ---
+                    const mathSnippets = [];
+                    // 1. Protect MathJax content by replacing it with placeholders
+                    let protectedContent = note.content.replace(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$)/g, (match) => {
+                        const placeholder = `<!--MATHJAX_PLACEHOLDER_${mathSnippets.length}-->`;
+                        mathSnippets.push(match);
+                        return placeholder;
+                    });
 
+                    // 2. Convert the Markdown (with placeholders) to HTML
+                    let markdownHtml = markdownConverter.makeHtml(protectedContent);
+
+                    // 3. Restore the original MathJax content
+                    mathSnippets.forEach((snippet, index) => {
+                        const placeholder = `<!--MATHJAX_PLACEHOLDER_${index}-->`;
+                        // Handle cases where showdown wraps the placeholder in its own <p> tag
+                        markdownHtml = markdownHtml.replace(`<p>${placeholder}</p>`, snippet).replace(placeholder, snippet);
+                    });
+                    
                     noteEl.innerHTML = `
                         <p class="font-semibold text-blue-700">Page ${note.page}</p>
                         <p class="text-sm text-gray-600 italic">By: ${note.author}</p>
                         <div class="mt-1 text-gray-800 prose">${markdownHtml}</div>
                     `;
 
-                    // Add click event to jump to the page, but ignore clicks on links inside the note
+                    // Add click event to jump to the page, but ignore clicks on links or rendered math
                     noteEl.addEventListener('click', (e) => {
-                        if (e.target.tagName === 'A') {
+                        if (e.target.tagName === 'A' || e.target.closest('.MathJax')) {
                             return;
                         }
                         pageNum = note.page;
@@ -292,7 +308,7 @@
                     annotationsList.appendChild(noteEl);
                 });
 
-                // Tell MathJax to typeset the new content
+                // 4. Tell MathJax to typeset the final, restored content
                 if (window.MathJax) {
                     MathJax.typesetPromise([annotationsList]).catch((err) => {
                         console.error('MathJax typesetting failed:', err);
